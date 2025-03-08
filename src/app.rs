@@ -114,7 +114,6 @@ fn HomePage() -> impl IntoView {
     // Creates a reactive value to update the button
     let (name,set_name) = signal("".to_string());
     let (updateValue, setUpdateValue) = signal(0);
-    let localR
     let links = Resource::new(  
        move || updateValue.get(),
        move |_| async move{
@@ -135,7 +134,7 @@ fn HomePage() -> impl IntoView {
             let links = links.ok()?;
             Some(view! {
                 <ul>
-                    {links.iter().map(|link| view! { <li>{link.gid.clone()} {link.st} <ul>{link.files.iter().map(|x| view! { <li>{x.clone()}</li>} ).collect_view()} </ul></li> }).collect::<Vec<_>>()}
+                    {links.iter().map(|link| view! { <li>{link.gid.clone()}  <ul>{link.files.iter().map(|x| view! { <li>{x.clone()}</li>} ).collect_view()} </ul></li> }).collect::<Vec<_>>()}
                 </ul>
             })
                     })}
