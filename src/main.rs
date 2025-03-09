@@ -1,4 +1,3 @@
-
 mod types;
 
 #[cfg(feature = "ssr")]
@@ -6,32 +5,79 @@ mod types;
 async fn main() {
     use std::sync::Arc;
 
-    use axum::Router;
+    use aria2_leptos::{app::*, AppState};
+    use axum::{extract::{Path, Request, State}, http::HeaderMap, response::IntoResponse, routing::{get, post}, Router};
     use leptos::logging::log;
     use leptos::prelude::*;
-    use leptos_axum::{generate_route_list, LeptosRoutes};
-    use aria2_leptos::{app::*, AppState};
+    use leptos_axum::{generate_route_list, generate_route_list_with_exclusions_and_ssg_and_context, handle_server_fns_with_context, LeptosRoutes};
+    #[cfg(feature = "ssr")]
+use axum::response::Response as AxumResponse;
+    use leptos_ws::server_signals;
+
+
+      async fn server_fn_handler(
+        State(state): State<AppState>,
+        _path: Path<String>,
+        _headers: HeaderMap,
+        _query: axum::extract::RawQuery,
+        request: Request,
+    ) -> impl IntoResponse {
+        handle_server_fns_with_context(
+            move || {
+                provide_context(state.leptos_options.clone());
+                provide_context(state.server_signals.clone());
+                provide_context(state.aria2.clone());
+                provide_context(state.clone());
+            },
+            request,
+        )
+        .await
+    }
+    async fn leptos_routes_handler(state: State<AppState>, req: Request) -> AxumResponse {
+        let state1 = state.0.clone();
+        let options2 = state.clone().0.leptos_options.clone();
+        let handler = leptos_axum::render_route_with_context(
+            state.routes.clone().unwrap(),
+            move || {
+                provide_context(state1.leptos_options.clone());
+                provide_context(state1.server_signals.clone());
+            },
+            move || shell(options2.clone()),
+        );
+        handler(state, req).await.into_response()
+    }
+
 
     let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
+    let server_signals = server_signals::ServerSignals::new();
+
     // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(App);
-    let aria2 = Arc::new(tokio::sync::RwLock::new(aria2_ws::Client::connect("ws://localhost:6800/jsonrpc", None).await.unwrap()));
-    let app_state = AppState {
+    let aria2 = Arc::new(tokio::sync::RwLock::new(
+        aria2_ws::Client::connect("ws://localhost:6800/jsonrpc", None)
+            .await
+            .unwrap(),
+    ));
+    let mut app_state = AppState {
         aria2: aria2.clone(),
+        server_signals: server_signals.clone(),
+        routes: None,
         leptos_options: leptos_options.clone(),
     };
-    let app = Router::new()
-        .leptos_routes_with_context(&app_state, routes, {
-            let aria2a = aria2.clone();
-            move || {
-                provide_context(aria2a.clone());
-            }
+    let state2= app_state.clone();
 
-        },
-    move || shell(leptos_options.clone()))
-        .fallback(leptos_axum::file_and_error_handler::<AppState,_>(shell))
+    let (routes,_) = generate_route_list_with_exclusions_and_ssg_and_context(
+        || view! { <App/> }, None,  move || {
+            provide_context(state2.server_signals.clone());
+            provide_context(state2.clone());
+});
+    app_state.routes = Some(routes.clone());
+    let app = Router::new()
+    .route("/api/*fn_name", post(server_fn_handler))
+    .route("/ws", get(leptos_ws::axum::websocket(app_state.server_signals.clone())))
+        .leptos_routes_with_handler(routes, get(leptos_routes_handler))
+        .fallback(leptos_axum::file_and_error_handler::<AppState, _>(shell))
         .with_state(app_state);
 
     // run our app with hyper

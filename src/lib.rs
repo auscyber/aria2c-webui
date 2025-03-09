@@ -6,6 +6,11 @@ use leptos::prelude::*;
 
 pub mod app;
 
+#[cfg(feature = "ssr")]
+use leptos_axum::AxumRouteListing;
+#[cfg(feature = "ssr")]
+use leptos_ws::server_signals::ServerSignals;
+
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {
@@ -15,8 +20,10 @@ pub fn hydrate() {
 }
 
 #[cfg(feature = "ssr")]
-#[derive(FromRef,  Clone)]
+#[derive(FromRef, Clone)]
 pub struct AppState {
     pub aria2: Arc<tokio::sync::RwLock<aria2_ws::Client>>,
+    pub server_signals: ServerSignals,
+    pub routes: Option<Vec<AxumRouteListing>>,
     pub leptos_options: LeptosOptions,
 }

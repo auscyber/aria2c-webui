@@ -1,5 +1,14 @@
 {
     "rust-analyzer.cargo.features": [
         "ssr"
-    ]
+    ],
+  "rust-analyzer.rustfmt.overrideCommand": [
+    "leptosfmt",
+    "--stdin",
+    "--rustfmt"
+  ],
+  "tailwindCSS.includeLanguages": {
+    "rust": "html",
+    "*.rs": "html"
+  }
 }

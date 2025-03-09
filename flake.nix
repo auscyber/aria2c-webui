@@ -25,6 +25,8 @@
               rustfmt
               rust-analyzer
               trunk
+leptosfmt tailwindcss
+
 (
   cargo-leptos # .overrideAttrs  (oldAttrs: rec {
   #  src = leptos;
